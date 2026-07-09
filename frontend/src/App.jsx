@@ -1,18 +1,12 @@
-import { useEffect, useState } from "react";
+import {  useState } from "react";
 import "./App.css";
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState("Connecting...");
+
   const [selectedImage, setSelectedImage] = useState(null);
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch("http://127.0.0.1:8000/")
-      .then((res) => res.json())
-      .then(() => setBackendStatus("Backend Connected"))
-      .catch(() => setBackendStatus("Backend Offline"));
-  }, []);
+   
 
   const handleImageChange = (e) => {
     setSelectedImage(e.target.files[0]);
@@ -43,66 +37,63 @@ function App() {
   };
 
 return (
-  <div className="app">
-    <div className="card">
-      <h1>Instrument AI</h1>
-   
-      <div className="status">
-        <span
-          className={`status-dot ${
-            backendStatus === "Backend Connected" ? "online" : "offline"
-          }`}
-        ></span>
+<div className="app">
+  <div className="card">
+    <h1 className="title">🎸 SoundLens AI</h1>
 
-        {backendStatus}
-      </div>
+    <p className="subtitle">
+      Upload instrument image & detect sound
+    </p>
 
-      <div className="upload-section">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageChange}
+    <label htmlFor="imageUpload" className="image-container">
+      {selectedImage ? (
+        <img
+          src={URL.createObjectURL(selectedImage)}
+          alt="Preview"
+          className="preview-image"
         />
-      </div>
+      ) : (
+        <div className="placeholder">
+    
 
-      {selectedImage && (
-        <div className="preview">
-          <img
-            src={URL.createObjectURL(selectedImage)}
-            alt="Preview"
-          />
+          <h3>Upload Instrument Image</h3>
+
+
+          <span>Click to Browse</span>
         </div>
       )}
+    </label>
 
-      <button
-        className="detect-btn"
-        onClick={detectObjects}
-        disabled={loading}
-      >
-        {loading ? "Detecting..." : "Detect Objects"}
-      </button>
+    <input
+      id="imageUpload"
+      type="file"
+      accept="image/*"
+      hidden
+      onChange={handleImageChange}
+    />
 
-      <div className="result-card">
-        <h2>Detection Results</h2>
+    <button
+      className="detect-btn"
+      onClick={detectObjects}
+      disabled={loading}
+    >
+      {loading ? "Detecting..." : "Detect Instrument"}
+    </button>
 
-        {predictions.length === 0 ? (
-          <p className="empty">No detections yet.</p>
-        ) : (
-          <ul>
-            {predictions.map((item, index) => (
-              <li key={index}>
-                <strong>{item.class}</strong>
-
-                <span>
-                  {(item.confidence * 100).toFixed(2)}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+    <div className="result-box">
+      {predictions.length === 0 ? (
+        "No detections yet."
+      ) : (
+        predictions.map((item, index) => (
+          <span key={index}>
+            {item.class} ({item.confidence.toFixed(2)})
+            {index !== predictions.length - 1 ? ", " : ""}
+          </span>
+        ))
+      )}
     </div>
   </div>
+</div>
 );
 }
 

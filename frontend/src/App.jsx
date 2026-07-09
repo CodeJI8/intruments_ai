@@ -1,49 +1,28 @@
 import { useEffect, useState } from "react";
-import ImageUpload from "./components/ImageUpload";
-import DetectionCanvas from "./components/DetectionCanvas";
-import PredictionList from "./components/PredictionList";
 import "./App.css";
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState("connecting");
-  const [statusMessage, setStatusMessage] = useState("Connecting to backend...");
+  const [backendStatus, setBackendStatus] = useState("Connecting...");
   const [selectedImage, setSelectedImage] = useState(null);
-  const [predictions, setPredictions] = useState(null);
-  const [imgWidth, setImgWidth] = useState(0);
-  const [imgHeight, setImgHeight] = useState(0);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [error, setError] = useState("");
+  const [predictions, setPredictions] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const checkBackend = async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:8000/");
-        if (!response.ok) throw new Error("Backend not responding");
-        const data = await response.json();
-        setBackendStatus("connected");
-        setStatusMessage(data.message || "Instrument AI is running");
-      } catch (err) {
-        console.error(err);
-        setBackendStatus("failed");
-        setStatusMessage("Backend connection failed. Make sure the FastAPI server is running.");
-      }
-    };
-
-    checkBackend();
+    fetch("http://127.0.0.1:8000/")
+      .then((res) => res.json())
+      .then(() => setBackendStatus("Backend Connected"))
+      .catch(() => setBackendStatus("Backend Offline"));
   }, []);
 
-  const handleImageSelect = (file) => {
-    setSelectedImage(file);
-    setPredictions(null);
-    setError("");
+  const handleImageChange = (e) => {
+    setSelectedImage(e.target.files[0]);
+    setPredictions([]);
   };
 
-  const handleDetect = async () => {
+  const detectObjects = async () => {
     if (!selectedImage) return;
 
-    setIsDetecting(true);
-    setError("");
-    setPredictions(null);
+    setLoading(true);
 
     const formData = new FormData();
     formData.append("file", selectedImage);
@@ -54,85 +33,77 @@ function App() {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`Detection failed with status: ${response.status}`);
-      }
-
       const data = await response.json();
       setPredictions(data.predictions);
-      setImgWidth(data.width);
-      setImgHeight(data.height);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to run detection. Please check the backend connection and try again.");
-    } finally {
-      setIsDetecting(false);
+    } catch (error) {
+      console.log(error)
     }
+
+    setLoading(false);
   };
 
-  return (
-    <div className="app-container">
-      {/* Header Section */}
-      <header className="app-header">
-        <h1 className="app-title">Instrument AI</h1>
-        <div className={`status-badge ${backendStatus}`}>
-          <span className={`status-dot ${backendStatus}`} />
-          {statusMessage}
+return (
+  <div className="app">
+    <div className="card">
+      <h1>Instrument AI</h1>
+   
+      <div className="status">
+        <span
+          className={`status-dot ${
+            backendStatus === "Backend Connected" ? "online" : "offline"
+          }`}
+        ></span>
+
+        {backendStatus}
+      </div>
+
+      <div className="upload-section">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageChange}
+        />
+      </div>
+
+      {selectedImage && (
+        <div className="preview">
+          <img
+            src={URL.createObjectURL(selectedImage)}
+            alt="Preview"
+          />
         </div>
-      </header>
+      )}
 
-      {/* Main Content Dashboard */}
-      <main className="app-main">
-        {/* Step 1: Upload or Preview Area */}
-        <section className="section-wrapper">
-          {!selectedImage ? (
-            <ImageUpload onImageSelect={handleImageSelect} selectedImage={selectedImage} />
-          ) : (
-            <div className="preview-grid">
-              <DetectionCanvas
-                image={selectedImage}
-                predictions={predictions}
-                originalWidth={imgWidth}
-                originalHeight={imgHeight}
-              />
+      <button
+        className="detect-btn"
+        onClick={detectObjects}
+        disabled={loading}
+      >
+        {loading ? "Detecting..." : "Detect Objects"}
+      </button>
 
-              {/* Action Buttons & Status */}
-              <div className="btn-group">
-                <button
-                  onClick={() => handleImageSelect(null)}
-                  disabled={isDetecting}
-                  className="btn-secondary"
-                >
-                  Change Image
-                </button>
+      <div className="result-card">
+        <h2>Detection Results</h2>
 
-                <button
-                  onClick={handleDetect}
-                  disabled={isDetecting || backendStatus !== "connected"}
-                  className="btn-primary"
-                >
-                  {isDetecting ? "Detecting..." : "Detect Objects"}
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
+        {predictions.length === 0 ? (
+          <p className="empty">No detections yet.</p>
+        ) : (
+          <ul>
+            {predictions.map((item, index) => (
+              <li key={index}>
+                <strong>{item.class}</strong>
 
-        {/* Error Messages */}
-        {error && (
-          <div className="error-banner">
-            {error}
-          </div>
+                <span>
+                  {(item.confidence * 100).toFixed(2)}%
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
-
-        {/* Step 2: Predictions Results */}
-        {selectedImage && (
-          <section style={{ width: "100%", marginTop: "10px" }}>
-            <PredictionList predictions={predictions} />
-          </section>
-        )}
-      </main>
+      </div>
     </div>
-  );
+  </div>
+);
 }
+
 export default App;
